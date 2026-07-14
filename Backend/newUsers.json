@@ -1,0 +1,34 @@
+[
+    {
+        "id": "1",
+        "fullname": "Favour Jack",
+        "email": "joshuaeshiet4@gmail.com",
+        "password": 123456,
+        "confirmPassword": 123456,
+        "role": "admin"
+    },
+    {
+        "id": "2",
+        "fullname": "Isaac Adepetun",
+        "email": "bosszik40gmail.com",
+        "password": 384363,
+        "confirmPassword": 384363,
+        "role": "manager"
+    },
+    {
+        "id": "3",
+        "fullname": "Emmanuel Eshiet",
+        "email": "nueleshiet@gmail.com",
+        "password": 3843632,
+        "confirmPassword": 3843632,
+        "role": "manager"
+    },
+    {
+        "id": "4",
+        "fullname": "Chinaka Emmanuel",
+        "email": "chinakaemmanuel@gmail.com",
+        "password": 45454545,
+        "confirmPassword": 45454545,
+        "role": "administrator"
+    }
+]

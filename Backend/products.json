@@ -1,0 +1,23 @@
+[
+    {
+        "id": "1",
+        "image": "ghgdshghsdhshds",
+        "name": "Samsung",
+        "color": "indigo",
+        "price": "$5000"
+    },
+    {
+        "id": "2",
+        "image": "ghgdshghsdhshds",
+        "name": "iphone 15",
+        "color": "blue",
+        "price": "$3000"
+    },
+    {
+        "id": "3",
+        "image": "ImageOfAnIphone",
+        "name": "iphone 18",
+        "color": "green",
+        "price": "$4000"
+    }
+]
