@@ -259,7 +259,8 @@ export const deleteUser = async (req, res) => {
         // return a success response if user exists
         res.status(200).json({
             status: "Success",
-            message: `User with the email: ${email} deleted successfully`,
+            message: `User with the email: ${email} has been deleted successfully`,
+            //this is where i made some changes
         })
 
     } catch (error) {
