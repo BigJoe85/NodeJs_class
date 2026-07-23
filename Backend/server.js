@@ -5,10 +5,9 @@ import productsRoutes from "./Routes/productsRoutes.js"
 import morgan from "morgan"
 import connect from "./Utils/db.js"
 import cors from "cors"
+import cookieParser from "cookie-parser"
+import rateLimit from "express-rate-limit"
 
-
-
-//USING dotenv to get the value of port instead of writing it directly into our code
 
 //Firstly configure our dotenv file
 dotenv.config({
@@ -22,8 +21,60 @@ app.use(cors({
     credentials: true,
 })) // setting up our cross origin resource sharing so our frontend and backend can interract using API calls.
 
-app.use(express.json()) // This is used to retrieve or parse the request .body also called a middle ware
-app.use(morgan('dev')) 
+app.use(express.urlencoded({ extended: true})) // parses data sent from traditional HTML form submissions (without fetch) just an extra measure incase a form is submitted the old way without fetch.
+
+//Initialize rate limiter, rate limiter is placed e arly so requests are counted and blocked before any processing happens on them
+const limiter = rateLimit({
+    windowMs: 15 * 60 * 1000,  // time in milliseconds
+    max: 100 // limited each ip to 100 request
+})
+
+app.use(limiter) // Tells express to use it on every incoming requests, so every request that hits our server passes through limiter 
+
+app.use(cookieParser()) // allows express to read cookies from req.cookies
+
+app.use(express.json()) // This is used to retrieve or parse the request.body also called a middle ware
+
+app.use(morgan('dev'))  // Morgan logs details about every incoming request to your terminal automatically so you can see what's happening in real time.
+
+app.use('/api/v1/user', userRoutes) // Mount the user routes
+app.use('/api/v1', productsRoutes); // Mount the product routes
+
+connect() // connecting our mongodb databse to our application
+
+// Using process.env to get the value of our port from .env file instead of writing it directly into our code
+let PORT = process.env.PORT
+app.listen(PORT, () => {
+    console.log(`Server connected to PORT: ${PORT}`)
+})
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 // let PORT =5000
 // app.listen(PORT, ()=> {
@@ -73,15 +124,6 @@ app.use(morgan('dev'))
 // // Deleting Products from the database
 // app.delete('/api/v1/products/:id', deleteProducts )
 
-app.use('/api/v1/user', userRoutes) // Mount the user routes
-app.use('/api/v1', productsRoutes); // Mount the product routes
-
-connect() // connecting our mongodb databse to our application
-// secondly using process.env to get the value of our port from .env file
-let PORT = process.env.PORT
-app.listen(PORT, () => {
-    console.log(`Server connected to PORT: ${PORT}`)
-})
 
 
 

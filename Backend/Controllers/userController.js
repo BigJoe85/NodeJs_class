@@ -3,10 +3,9 @@ import mongoose from "mongoose"
 // import the User model created in the model file
 import { User } from "../Models/userSchema.js"
 import jwt from "jsonwebtoken"
-import token from "../Utils/jwt.js"
+import { accessToken as generateAccessToken, refreshToken as generateRefreshToken } from "../Utils/jwt.js"
 import { sendVerificationEmail } from "../config/email.js"
 import bcrypt from "bcrypt"
-
 
 
 // create a function that handles registration
@@ -25,7 +24,7 @@ export const addUser = async (req, res) => {
         }
 
         // Also check if the user already exist in the database
-        const findUser = await User.findOne({ email }) // the findOne is a mongodb method that returns the first item that meets the condition
+        const findUser = await User.findOne({ email: email.toLowerCase() }) // the findOne is a mongodb method that returns the first item that meets the condition
         //check if the user already exists
         if (findUser) {
             return res.status(401).json({
@@ -49,7 +48,7 @@ export const addUser = async (req, res) => {
         })
 
         // create a variable that will hold the verification token 
-        const verificationToken = token({ id: user._id, email: user.email })
+        const verificationToken = generateAccessToken({ id: user._id, email: user.email })
         //generate a verification link from the client url
         const verificationLink = `${process.env.CLIENT_URL || "http://localhost:5173"}/verify-email/${verificationToken}`
 
@@ -59,17 +58,22 @@ export const addUser = async (req, res) => {
         await User.findByIdAndUpdate(user._id, { verificationToken })
 
         // send a verification email
-        await sendVerificationEmail(user, verificationLink)
+        // await sendVerificationEmail(user, verificationLink) OR
 
-
+        // we can use try catch
+        try {
+            await sendVerificationEmail(user, verificationLink)
+        } catch (emailErr) {
+            console.error("Error sending verification email:", emailErr)
+        }
 
         // create an authentication token that will be returned to the user as verification token
-        const authToken = token({ id: user._id })
+        // const authToken = token({ id: user._id })
 
         // return a success response
         res.status(201).json({
             status: "success",
-            token: authToken,
+            // token: authToken,
             message: "user registered successfully. Check your email to verify your account.",
             data: user
         })
@@ -87,6 +91,7 @@ export const verifyEmail = async (req, res) => {
     try {
         // get the request token from req.params
         const { token: verificationToken } = req.params;
+
         // decode the token(encrypted server token and client token)
         const decoded = jwt.verify(verificationToken, process.env.JWT_SECRET);
 
@@ -117,7 +122,7 @@ export const loginUser = async (req, res) => {
         const { email, password } = req.body;
 
         // check if user exists in the database
-        const user = await User.findOne({ email })
+        const user = await User.findOne({ email: email.toLowerCase() })
 
         // return an error if user does not exist in the database
         if (!user) {
@@ -126,6 +131,15 @@ export const loginUser = async (req, res) => {
                 message: "Invalid email or password"
             })
         }
+
+        // block login if user hasn't verified their email yet
+        if (!user.isVerified) {
+            return res.status(403).json({
+                status: "Failed",
+                message: "Please verify your email"
+            })
+        }
+
 
         // compare the entered password with the password in the database which is already encrypted so we'll be using bcrypt compare method to do this.
         // the bcrypt compare method takes 2 parameters, of which are the things you want to compare 
@@ -139,17 +153,36 @@ export const loginUser = async (req, res) => {
             })
         }
 
+
         //Create a JWT token (JSON Web Token which we already installed using npm install jsonwebtoken)
         //JWT token is made up of the header, payload and the siignature, the signature is made of up (header, payload and the secrete string)
 
         // in our .env file, we create our JWT_SECRET and expiration (JWT_EXPRESS_IN ) so we can call them here using 'process'
-        let token = jwt.sign({ id: user?.id }, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRES_IN })
+        // let token = jwt.sign({ id: user?.id }, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRES_IN })
+
+
+        // Generate and Access and Refresh Token
+
+        // Generate a shortlived access token sent to the client in response body, our frontend/client stores this token in local Storage and send its in the authorization header on every protecteed/ authenticated route request
+        const accessToken = accessToken({ id: user._id })
+
+        //Generate a long lived refresh token, stored in an HttpOnly cookie, the frontend/client never directly accesses this token with javascript, it is automatically send by the browser on every request used only to generate a new access token, when the access token expires 
+        const refreshToken = accessToken({ id: user._id })
+
+
+        // Store the token using the HttpOnly 
+        res.cookie('refreshToken', refreshToken, {
+            httpONly: true, //javascript cannot access this cookie, protects against XSS(Cross Site Scripting)
+            secure: process.NODE_ENV === "Production",
+            sameSite: "strict", // Cookie only sent from same site protects against CSRF(Cross Site Request Forgery)
+            maxAge: process.env.JWT_REFRESH_EXPIRES_IN 
+        })
 
         //send a response with the token and data
         res.status(200).json({
             status: "Success",
             message: "Login Successful",
-            token,
+            token: accessToken,
             data: user
         })
 
@@ -269,4 +302,78 @@ export const deleteUser = async (req, res) => {
         })
     }
 }
+
+
+export const refreshTokenRoute = (req, res) => {
+
+    //Read the refresh token from the HttpOnly cookie, req.cookies is available because of the cookieParser middleware which we installed and initialized in server.js 
+    const token = req.cookies.refreshToken
+
+    //if not token in req.cookies, user will not be logged in or if their token is expired, they must log in again, sendStatus() send the status code with no response body
+    if (!token) return res.sendStatus(401);
+
+    //verify the token
+    jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
+        if (err) return res.sendStatus(403);
+
+        const accessToken = generateAccessToken(user); //generates a new accessToken
+
+        res.json({
+            accessToken   //send the updated access token in the response 
+        })
+    })
+}
+
+
+//Getting limited users using limit mongoose method and request query
+// Get limited user admin controller
+export const getLimitedUsers = async (req, res) => {
+    try {
+        const limit = Number(req.query.limit) || 10 // request query returns values as string so we need to convert it to a number using type casting(Number()) LOGICAL OR (|| 10) makes sure to give back only 10 users just incase the limit isn't included in the request query
+        let users = await User.find({})
+            .select("-password") //.select(-"password") is a mongodb method that excludes the argument given so we dont want to also include password when finding the user
+            .limit(limit)
+        res.status(200).json({
+            status: "Success",
+            message: "All users retrieved",
+            data: users
+        })
+    } catch (error) {
+        res.status(404).json({
+            status: "Failed",
+            message: `Unable to get users. Error: ${error}`
+        })
+    }
+}
+
+
+// Filtering controller
+export const getFilteredUsers = async (req, res) => {
+    try {
+        //getting request query from the url
+        const { userName } = req.query
+
+        const limit = Number(req.query.limit) || 2 // request query returns values as string so we need to convert it to a number using type casting(Number()) LOGICAL OR (|| 2) makes sure to give back only 2 users just incase the limit isn't included in the request query
+
+
+        //find the user in the database
+        const user = await User.find({ userName: userName })
+            .select("-password")
+            .limit(limit)
+
+        if (!user) return res.sendStatus(404)
+
+        res.status(200).json({
+            status: "Success",
+            message: "All users retrieved",
+            data: user
+        })
+    } catch (error) {
+        res.status(404).json({
+            status: "Failed",
+            message: `Unable to get users. Error: ${error}`
+        })
+    }
+}
+
 

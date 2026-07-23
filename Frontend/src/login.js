@@ -1,35 +1,39 @@
-// const loginForm = document.getElementById('loginForm')
-// const emailInput = document.getElementById('email')
-// const passwordInput = document.getElementById('password')
+const loginForm = document.getElementById('loginForm')
+const email = document.getElementById('email')
+const password = document.getElementById('password')
 
-// if (loginForm) {
-//     loginForm.addEventListener('submit', async (event) => {
-//         event.preventDefault()
 
-//         const email = emailInput.value.trim()
-//         const password = passwordInput.value
 
-//         if (!email || !password) {
-//             return alert('Please enter both email and password.')
-//         }
+loginForm.addEventListener('submit', async (event) => {
+    event.preventDefault()
 
-//         const response = await fetch('http://localhost:8000/api/v1/user/login', {
-//             method: 'POST',
-//             headers: {
-//                 'Content-Type': 'application/json'
-//             },
-//             body: JSON.stringify({ email, password })
-//         })
+    try {
+        const response = await fetch('http://localhost:8000/api/v1/user/login', {
+            method: 'POST',
+            body: JSON.stringify({
+                email: email.value.trim(),
+                password: password.value
+            }),
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        })
 
-//         const data = await response.json()
-//         console.log(data)
+         //Convert the response to javascript object
+        const data = await response.json()
 
-//         if (!response.ok) {
-//             return alert(data.message || data.error?.message || 'Login failed. Please try again.')
-//         }
+        if (response.ok) {
+            alert('Login successful!')
+            localStorage.setItem('token', data.token)
+            window.location.href = './home.html'
+        } else {
+            alert(data.message || 'Unable to login')
+            console.log(data.message)
+        }
 
-//         localStorage.setItem('token', data.token)
-//         alert(data.message || 'Login successful!')
-//         window.location.href = './home.html'
-//     })
-// }
+    } catch (error) {
+        alert('Something went wrong. Please try again.')
+        console.error(error)
+    }
+})
+

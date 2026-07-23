@@ -1,10 +1,10 @@
 import jwt from "jsonwebtoken"
 
-const token = (payload) => {
-    return jwt.sign(payload, process.env.JWT_SECRET, {expiresIn: process.env.JWT_EXPIRES_IN
-        
-    })
-
+export const accessToken = (payload) => {
+    return jwt.sign(payload, process.env.JWT_SECRET, {expiresIn: process.env.JWT_ACCESS_EXPIRES_IN})
 }
 
-export default token;
+export const refreshToken = (payload) => {
+    return jwt.sign(payload, process.env.JWT_SECRET, {expiresIn: process.env.JWT_REFRESH_EXPIRES_IN})
+}
+
